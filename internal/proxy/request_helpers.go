@@ -12,6 +12,64 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const assistantToolCallContentFallback = "Thinking..."
+
+// fixEmptyAssistantToolCallContent fixes the issue where assistant messages with tool_calls
+// but empty content cause "Function call is missing a thought_signature" errors.
+func fixEmptyAssistantToolCallContent(bodyBytes []byte) []byte {
+	if len(bodyBytes) == 0 {
+		return bodyBytes
+	}
+
+	var requestData map[string]any
+	if err := json.Unmarshal(bodyBytes, &requestData); err != nil {
+		return bodyBytes
+	}
+
+	messages, ok := requestData["messages"].([]any)
+	if !ok {
+		return bodyBytes
+	}
+
+	modified := false
+	for _, msg := range messages {
+		msgMap, ok := msg.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		// Only process assistant messages with tool_calls
+		role, _ := msgMap["role"].(string)
+		if role != "assistant" {
+			continue
+		}
+
+		toolCalls, hasToolCalls := msgMap["tool_calls"]
+		if !hasToolCalls || toolCalls == nil {
+			continue
+		}
+
+		// Check if content is empty or null
+		content, contentExists := msgMap["content"]
+		if !contentExists || content == nil || content == "" {
+			msgMap["content"] = assistantToolCallContentFallback
+			modified = true
+		}
+	}
+
+	if !modified {
+		return bodyBytes
+	}
+
+	newBody, err := json.Marshal(requestData)
+	if err != nil {
+		logrus.Warnf("failed to marshal fixed request body: %v", err)
+		return bodyBytes
+	}
+
+	return newBody
+}
+
 func (ps *ProxyServer) applyParamOverrides(bodyBytes []byte, group *models.Group) ([]byte, error) {
 	if len(group.ParamOverrides) == 0 || len(bodyBytes) == 0 {
 		return bodyBytes, nil
