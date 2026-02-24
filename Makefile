@@ -7,7 +7,7 @@
 .PHONY: run
 run: ## Build frontend and run server
 	@echo "--- Building frontend... ---"
-	cd web && npm install && npm run build
+	cd web && npm install && VITE_VERSION=$(shell grep -oP 'Version = "\K[^"]+' internal/version/version.go) npm run build
 	@echo "--- Preparing backend... ---"
 	@echo "--- Starting backend... ---"
 	go run ./main.go
