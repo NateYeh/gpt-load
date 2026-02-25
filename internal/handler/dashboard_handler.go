@@ -91,6 +91,17 @@ func (s *Server) Stats(c *gin.Context) {
 	// 获取安全警告信息
 	securityWarnings := s.getSecurityWarnings(c)
 
+	// 计算 Token 趋势
+	tokenTrend := 0.0
+	tokenTrendIsGrowth := true
+	if previousPeriod.TotalTokens > 0 {
+		tokenTrend = (float64(currentPeriod.TotalTokens-previousPeriod.TotalTokens) / float64(previousPeriod.TotalTokens)) * 100
+		tokenTrendIsGrowth = tokenTrend >= 0
+	} else if currentPeriod.TotalTokens > 0 {
+		tokenTrend = 100.0
+		tokenTrendIsGrowth = true
+	}
+
 	stats := models.DashboardStatsResponse{
 		KeyCount: models.StatCard{
 			Value:       float64(activeKeys),
@@ -107,6 +118,11 @@ func (s *Server) Stats(c *gin.Context) {
 			Value:         currentErrorRate,
 			Trend:         errorRateTrend,
 			TrendIsGrowth: errorRateTrendIsGrowth,
+		},
+		TokenCount: models.StatCard{
+			Value:         float64(currentPeriod.TotalTokens),
+			Trend:         tokenTrend,
+			TrendIsGrowth: tokenTrendIsGrowth,
 		},
 		SecurityWarnings: securityWarnings,
 	}
@@ -184,10 +200,22 @@ func (s *Server) Chart(c *gin.Context) {
 type hourlyStatResult struct {
 	TotalRequests int64
 	TotalFailures int64
+	TotalTokens   int64
 }
 
 func (s *Server) getHourlyStats(startTime, endTime time.Time) (hourlyStatResult, error) {
 	var result hourlyStatResult
+
+	// Use request_logs for total tokens as group_hourly_stats doesn't have it yet
+	var tokenSum int64
+	s.DB.Model(&models.RequestLog{}).
+		Where("timestamp >= ? AND timestamp < ?", startTime, endTime).
+		Where("is_success = ?", true).
+		Where("request_type = ?", models.RequestTypeFinal).
+		Select("COALESCE(SUM(total_tokens), 0)").
+		Scan(&tokenSum)
+	result.TotalTokens = tokenSum
+
 	err := s.DB.Table("group_hourly_stats").
 		Where("time >= ? AND time < ?", startTime, endTime).
 		Where("group_id NOT IN (?)",

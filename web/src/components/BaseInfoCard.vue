@@ -48,6 +48,7 @@ const updateAnimatedValues = () => {
         rpm: Math.min(100 + (stats.value?.rpm?.trend ?? 0), 100) / 100,
         request_count: Math.min(100 + (stats.value?.request_count?.trend ?? 0), 100) / 100,
         error_rate: (100 - (stats.value?.error_rate?.value ?? 0)) / 100,
+        token_count: Math.min(100 + (stats.value?.token_count?.trend ?? 0), 100) / 100,
       };
     }, 0);
   }
@@ -62,7 +63,7 @@ onMounted(() => {
 <template>
   <div class="stats-container">
     <n-space vertical size="medium">
-      <n-grid cols="2 s:4" :x-gap="20" :y-gap="20" responsive="screen">
+      <n-grid cols="2 s:3 l:5" :x-gap="20" :y-gap="20" responsive="screen">
         <!-- 密钥数量 -->
         <n-grid-item span="1">
           <n-card :bordered="false" class="stat-card" style="animation-delay: 0s">
@@ -168,7 +169,7 @@ onMounted(() => {
             <div class="stat-header">
               <div class="stat-icon error-icon">🛡️</div>
               <n-tag
-                v-if="stats?.error_rate.trend !== 0"
+                v-if="stats?.error_rate && stats.error_rate.trend !== 0"
                 :type="stats?.error_rate.trend_is_growth ? 'success' : 'error'"
                 size="small"
                 class="stat-trend"
@@ -189,6 +190,39 @@ onMounted(() => {
                 class="stat-bar-fill error-bar"
                 :style="{
                   width: `${(animatedValues.error_rate ?? 0) * 100}%`,
+                }"
+              />
+            </div>
+          </n-card>
+        </n-grid-item>
+
+        <!-- 24小时 Token -->
+        <n-grid-item span="1">
+          <n-card :bordered="false" class="stat-card" style="animation-delay: 0.2s">
+            <div class="stat-header">
+              <div class="stat-icon token-icon">🪙</div>
+              <n-tag
+                v-if="stats?.token_count && stats.token_count.trend !== undefined"
+                :type="stats?.token_count.trend_is_growth ? 'success' : 'error'"
+                size="small"
+                class="stat-trend"
+              >
+                {{ stats ? formatTrend(stats.token_count.trend) : "--" }}
+              </n-tag>
+            </div>
+
+            <div class="stat-content">
+              <div class="stat-value">
+                {{ stats ? formatValue(stats.token_count.value) : "--" }}
+              </div>
+              <div class="stat-title">{{ t("dashboard.tokens24h") }}</div>
+            </div>
+
+            <div class="stat-bar">
+              <div
+                class="stat-bar-fill token-bar"
+                :style="{
+                  width: `${(animatedValues.token_count ?? 0) * 100}%`,
                 }"
               />
             </div>
@@ -317,6 +351,14 @@ onMounted(() => {
 
 .error-bar {
   background: linear-gradient(90deg, #43e97b 0%, #38f9d7 100%);
+}
+
+.token-icon {
+  background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%);
+}
+
+.token-bar {
+  background: linear-gradient(90deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%);
 }
 
 @keyframes slideInUp {

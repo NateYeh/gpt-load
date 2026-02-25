@@ -87,6 +87,7 @@ export default {
     blacklistedKeys: "Blacklisted Keys",
     rpm10Min: "10-Min RPM",
     requests24h: "24h Requests",
+    tokens24h: "24h Tokens",
     errorRate24h: "24h Error Rate",
     requestStatistics: "Request Statistics",
     totalRequests: "Total Requests",

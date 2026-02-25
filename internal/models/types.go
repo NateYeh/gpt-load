@@ -180,6 +180,7 @@ type DashboardStatsResponse struct {
 	RPM              StatCard          `json:"rpm"`
 	RequestCount     StatCard          `json:"request_count"`
 	ErrorRate        StatCard          `json:"error_rate"`
+	TokenCount       StatCard          `json:"token_count"`
 	SecurityWarnings []SecurityWarning `json:"security_warnings"`
 }
 

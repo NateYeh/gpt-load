@@ -235,6 +235,7 @@ export interface DashboardStatsResponse {
   rpm: StatCard;
   request_count: StatCard;
   error_rate: StatCard;
+  token_count: StatCard;
   security_warnings: SecurityWarning[];
 }
 
