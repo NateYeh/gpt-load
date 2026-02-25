@@ -8,6 +8,14 @@ import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 
+interface Props {
+  showUsage?: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  showUsage: false,
+});
+
 // 图表数据
 const chartData = ref<ChartData | null>(null);
 const selectedGroup = ref<number | null>(null);
@@ -48,7 +56,7 @@ const dataRange = computed(() => {
     return { min: 0, max: 100 };
   }
 
-  const allValues = chartData.value.datasets.flatMap(d => d.data);
+  const allValues = (props.showUsage ? chartData.value.usage : chartData.value.datasets).flatMap(d => d.data);
   const max = Math.max(...allValues, 0);
   const min = Math.min(...allValues, 0);
 
@@ -284,7 +292,7 @@ const handleMouseMove = (event: MouseEvent) => {
   }
 
   // 收集该时间点所有数据集的数据
-  const datasetsAtTime = chartData.value.datasets.map(dataset => ({
+  const datasetsAtTime = (props.showUsage ? chartData.value.usage : chartData.value.datasets).map(dataset => ({
     label: dataset.label,
     value: dataset.data[closestTimeIndex],
     color: dataset.color,
@@ -373,7 +381,7 @@ onMounted(() => {
   <div class="chart-container">
     <div class="chart-header">
       <div class="chart-title-section">
-        <h3 class="chart-title">{{ t("charts.requestTrend24h") }}</h3>
+        <h3 class="chart-title">{{ props.showUsage ? t("charts.tokenTrend24h") : t("charts.requestTrend24h") }}</h3>
       </div>
       <n-select
         v-model:value="selectedGroup"
@@ -388,7 +396,7 @@ onMounted(() => {
     <div v-if="chartData" class="chart-content">
       <div class="chart-wrapper">
         <div class="chart-legend">
-          <div v-for="dataset in chartData.datasets" :key="dataset.label" class="legend-item">
+          <div v-for="dataset in (props.showUsage ? chartData.usage : chartData.datasets)" :key="dataset.label" class="legend-item">
             <div class="legend-indicator" :style="{ backgroundColor: dataset.color }" />
             <span class="legend-label">{{ dataset.label }}</span>
           </div>
@@ -402,7 +410,7 @@ onMounted(() => {
         >
           <!-- 背景网格 -->
           <defs>
-            <pattern id="grid" width="40" height="30" patternUnits="userSpaceOnUse">
+            <pattern :id="`grid-${props.showUsage ? 'usage' : 'req'}`" width="40" height="30" patternUnits="userSpaceOnUse">
               <path
                 d="M 40 0 L 0 0 0 30"
                 fill="none"
@@ -412,7 +420,7 @@ onMounted(() => {
               />
             </pattern>
           </defs>
-          <rect width="100%" height="100%" fill="url(#grid)" />
+          <rect width="100%" height="100%" :fill="`url(#grid-${props.showUsage ? 'usage' : 'req'})`" />
 
           <!-- Y轴刻度线和标签 -->
           <g class="y-axis">
@@ -475,7 +483,7 @@ onMounted(() => {
           </g>
 
           <!-- 数据线条 -->
-          <g v-for="(dataset, datasetIndex) in chartData.datasets" :key="dataset.label">
+          <g v-for="(dataset, datasetIndex) in (props.showUsage ? chartData.usage : chartData.datasets)" :key="dataset.label">
             <!-- 渐变定义 -->
             <defs>
               <linearGradient :id="`gradient-${datasetIndex}`" x1="0%" y1="0%" x2="0%" y2="100%">

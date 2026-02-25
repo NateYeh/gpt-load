@@ -568,6 +568,7 @@ export default {
   },
   charts: {
     requestTrend24h: "24h Request Trend",
+    tokenTrend24h: "24h Token Usage Trend",
     allGroups: "All Groups",
   },
   security: {

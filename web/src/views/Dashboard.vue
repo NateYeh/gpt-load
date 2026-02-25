@@ -34,6 +34,7 @@ onMounted(async () => {
 
       <base-info-card :stats="dashboardStats" />
       <line-chart class="dashboard-chart" />
+      <line-chart class="dashboard-chart" :show-usage="true" />
     </n-space>
   </div>
 </template>

@@ -195,6 +195,7 @@ type ChartDataset struct {
 type ChartData struct {
 	Labels   []string       `json:"labels"`
 	Datasets []ChartDataset `json:"datasets"`
+	Usage    []ChartDataset `json:"usage"`
 }
 
 // GroupHourlyStat 对应 group_hourly_stats 表，用于存储每个分组每小时的请求统计

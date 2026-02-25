@@ -552,6 +552,7 @@ export default {
   },
   charts: {
     requestTrend24h: "24小时请求趋势",
+    tokenTrend24h: "24小时 Token 消耗趋势",
     allGroups: "全部分组",
   },
   security: {

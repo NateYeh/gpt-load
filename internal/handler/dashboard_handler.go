@@ -162,8 +162,34 @@ func (s *Server) Chart(c *gin.Context) {
 		statsByHour[hour]["failure"] += stat.FailureCount
 	}
 
+	// 获取 Token 统计 (逐小時)
+	type hourlyTokenResult struct {
+		Hour  time.Time
+		Value int64
+	}
+	var hourlyTokens []hourlyTokenResult
+	tokenQuery := s.DB.Model(&models.RequestLog{}).
+		Where("timestamp >= ? AND timestamp < ?", startHour, endHour.Add(time.Hour)).
+		Where("is_success = ?", true).
+		Where("request_type = ?", models.RequestTypeFinal)
+
+	if groupID != "" {
+		tokenQuery = tokenQuery.Where("group_id = ?", groupID)
+	}
+
+	tokenQuery.Select("strftime('%Y-%m-%d %H:00:00', timestamp) as hour, SUM(total_tokens) as value").
+		Group("hour").
+		Scan(&hourlyTokens)
+
+	tokensByHour := make(map[time.Time]int64)
+	for _, t := range hourlyTokens {
+		// Parse hours manually because of sqlite strftime
+		parsedHour, _ := time.ParseInLocation("2006-01-02 15:04:05", t.Hour.Format("2006-01-02 15:04:05"), time.Local)
+		tokensByHour[parsedHour.Truncate(time.Hour)] = t.Value
+	}
+
 	var labels []string
-	var successData, failureData []int64
+	var successData, failureData, tokenData []int64
 
 	for i := range 24 {
 		hour := startHour.Add(time.Duration(i) * time.Hour)
@@ -175,6 +201,12 @@ func (s *Server) Chart(c *gin.Context) {
 		} else {
 			successData = append(successData, 0)
 			failureData = append(failureData, 0)
+		}
+
+		if val, ok := tokensByHour[hour.Truncate(time.Hour)]; ok {
+			tokenData = append(tokenData, val)
+		} else {
+			tokenData = append(tokenData, 0)
 		}
 	}
 
@@ -190,6 +222,13 @@ func (s *Server) Chart(c *gin.Context) {
 				Label: i18n.Message(c, "dashboard.failed_requests"),
 				Data:  failureData,
 				Color: "rgba(255, 70, 70, 1)",
+			},
+		},
+		Usage: []models.ChartDataset{
+			{
+				Label: "Token",
+				Data:  tokenData,
+				Color: "rgba(255, 154, 158, 1)",
 			},
 		},
 	}
