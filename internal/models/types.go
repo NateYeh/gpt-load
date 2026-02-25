@@ -205,6 +205,7 @@ type GroupHourlyStat struct {
 	GroupID      uint      `gorm:"not null;uniqueIndex:idx_group_time" json:"group_id"`
 	SuccessCount int64     `gorm:"not null;default:0" json:"success_count"`
 	FailureCount int64     `gorm:"not null;default:0" json:"failure_count"`
+	TotalTokens  int64     `gorm:"not null;default:0" json:"total_tokens"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }

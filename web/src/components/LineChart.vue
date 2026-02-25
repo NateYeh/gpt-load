@@ -2,7 +2,7 @@
 import { getDashboardChart, getGroupList } from "@/api/dashboard";
 import type { ChartData } from "@/types/models";
 import { getGroupDisplayName } from "@/utils/display";
-import { NSelect, NSpin } from "naive-ui";
+import { NRadioButton, NRadioGroup, NSelect, NSpin } from "naive-ui";
 import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 
@@ -19,6 +19,7 @@ const props = withDefaults(defineProps<Props>(), {
 // 图表数据
 const chartData = ref<ChartData | null>(null);
 const selectedGroup = ref<number | null>(null);
+const selectedRange = ref<"24h" | "7d">("24h");
 const loading = ref(true);
 const animationProgress = ref(0);
 const hoveredPoint = ref<{
@@ -87,6 +88,12 @@ const yTicks = computed(() => {
 // 格式化时间标签
 const formatTimeLabel = (isoString: string) => {
   const date = new Date(isoString);
+  if (selectedRange.value === "7d") {
+    return date.toLocaleDateString(undefined, {
+      month: "2-digit",
+      day: "2-digit",
+    });
+  }
   return date.toLocaleTimeString(undefined, {
     hour: "2-digit",
     minute: "2-digit",
@@ -213,10 +220,9 @@ const generateAreaPath = (data: number[]) => {
 
 // 数字格式化
 const formatNumber = (value: number) => {
-  // if (value >= 1000000) {
-  //   return `${(value / 1000000).toFixed(1)}M`;
-  // } else
-  if (value >= 1000) {
+  if (value >= 1000000) {
+    return `${(value / 1000000).toFixed(1)}M`;
+  } else if (value >= 1000) {
     return `${(value / 1000).toFixed(1)}K`;
   }
   return Math.round(value).toString();
@@ -354,25 +360,28 @@ const fetchGroups = async () => {
 const fetchChartData = async () => {
   try {
     loading.value = true;
-    const response = await getDashboardChart(selectedGroup.value || undefined);
+    const response = await getDashboardChart(
+      selectedGroup.value || undefined,
+      selectedRange.value
+    );
     chartData.value = response.data;
 
     // 延迟启动动画，确保DOM更新完成
     setTimeout(() => {
       startAnimation();
     }, 100);
-  } catch (error) {
+// 监听分组和范围选择变化
+    } catch (error) {
     console.error("Failed to fetch chart data:", error);
   } finally {
     loading.value = false;
   }
 };
 
-// 监听分组选择变化
-watch(selectedGroup, () => {
+// 监听分组和范围选择变化
+watch([selectedGroup, selectedRange], () => {
   fetchChartData();
 });
-
 onMounted(() => {
   fetchGroups();
   fetchChartData();
@@ -383,16 +392,32 @@ onMounted(() => {
   <div class="chart-container">
     <div class="chart-header">
       <div class="chart-title-section">
-        <h3 class="chart-title">{{ props.showUsage ? t("charts.tokenTrend24h") : t("charts.requestTrend24h") }}</h3>
+        <h3 class="chart-title">
+          {{
+            selectedRange === "24h"
+              ? props.showUsage
+                ? t("charts.tokenTrend24h")
+                : t("charts.requestTrend24h")
+              : props.showUsage
+              ? t("charts.tokenTrend7d")
+              : t("charts.requestTrend7d")
+          }}
+        </h3>
       </div>
-      <n-select
-        v-model:value="selectedGroup"
-        :options="groupOptions as any"
-        :placeholder="t('charts.allGroups')"
-        size="small"
-        style="width: 150px"
-        clearable
-      />
+      <div class="chart-controls">
+        <n-radio-group v-model:value="selectedRange" size="small" style="margin-right: 12px">
+          <n-radio-button value="24h">{{ t("charts.range24h") }}</n-radio-button>
+          <n-radio-button value="7d">{{ t("charts.range7d") }}</n-radio-button>
+        </n-radio-group>
+        <n-select
+          v-model:value="selectedGroup"
+          :options="groupOptions as any"
+          :placeholder="t('charts.allGroups')"
+          size="small"
+          style="width: 150px"
+          clearable
+        />
+      </div>
     </div>
 
     <div v-if="chartData" class="chart-content">
@@ -598,9 +623,17 @@ onMounted(() => {
 .chart-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 12px;
+  align-items: center;
+  margin-bottom: 20px;
   gap: 16px;
+  flex-wrap: wrap;
+}
+
+.chart-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .chart-title-section {

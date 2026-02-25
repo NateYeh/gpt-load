@@ -197,6 +197,7 @@ func (s *RequestLogService) flush() {
 }
 
 // writeLogsToDB writes a batch of request logs to the database
+// writeLogsToDB writes a batch of request logs to the database
 func (s *RequestLogService) writeLogsToDB(logs []*models.RequestLog) error {
 	if len(logs) == 0 {
 		return nil
@@ -270,7 +271,7 @@ func (s *RequestLogService) writeLogsToDB(logs []*models.RequestLog) error {
 		hourlyStats := make(map[struct {
 			Time    time.Time
 			GroupID uint
-		}]struct{ Success, Failure int64 })
+		}]struct{ Success, Failure, Tokens int64 })
 		for _, log := range logs {
 			if log.RequestType == models.RequestTypeRetry {
 				continue
@@ -284,6 +285,7 @@ func (s *RequestLogService) writeLogsToDB(logs []*models.RequestLog) error {
 			counts := hourlyStats[key]
 			if log.IsSuccess {
 				counts.Success++
+				counts.Tokens += int64(log.TotalTokens)
 			} else {
 				counts.Failure++
 			}
@@ -298,6 +300,7 @@ func (s *RequestLogService) writeLogsToDB(logs []*models.RequestLog) error {
 				parentCounts := hourlyStats[parentKey]
 				if log.IsSuccess {
 					parentCounts.Success++
+					parentCounts.Tokens += int64(log.TotalTokens)
 				} else {
 					parentCounts.Failure++
 				}
@@ -312,6 +315,7 @@ func (s *RequestLogService) writeLogsToDB(logs []*models.RequestLog) error {
 					DoUpdates: clause.Assignments(map[string]any{
 						"success_count": gorm.Expr("group_hourly_stats.success_count + ?", counts.Success),
 						"failure_count": gorm.Expr("group_hourly_stats.failure_count + ?", counts.Failure),
+						"total_tokens":  gorm.Expr("group_hourly_stats.total_tokens + ?", counts.Tokens),
 						"updated_at":    time.Now(),
 					}),
 				}).Create(&models.GroupHourlyStat{
@@ -319,6 +323,7 @@ func (s *RequestLogService) writeLogsToDB(logs []*models.RequestLog) error {
 					GroupID:      key.GroupID,
 					SuccessCount: counts.Success,
 					FailureCount: counts.Failure,
+					TotalTokens:  counts.Tokens,
 				}).Error
 
 				if err != nil {

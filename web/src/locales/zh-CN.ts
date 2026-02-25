@@ -553,7 +553,11 @@ export default {
   charts: {
     requestTrend24h: "24小时请求趋势",
     tokenTrend24h: "24小时 Token 消耗趋势",
+    requestTrend7d: "7天请求趋势",
+    tokenTrend7d: "7天 Token 消耗趋势",
     allGroups: "全部分组",
+    range24h: "24小时",
+    range7d: "7天",
   },
   security: {
     warningsWithHigh: "发现 {count} 个安全配置问题，{highCount} 个需要优先处理",

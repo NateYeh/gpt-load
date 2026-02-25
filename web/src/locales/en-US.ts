@@ -569,7 +569,11 @@ export default {
   charts: {
     requestTrend24h: "24h Request Trend",
     tokenTrend24h: "24h Token Usage Trend",
+    requestTrend7d: "7d Request Trend",
+    tokenTrend7d: "7d Token Usage Trend",
     allGroups: "All Groups",
+    range24h: "24h",
+    range7d: "7d",
   },
   security: {
     warningsWithHigh:

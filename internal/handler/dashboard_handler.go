@@ -133,14 +133,26 @@ func (s *Server) Stats(c *gin.Context) {
 // Chart Get dashboard chart data
 func (s *Server) Chart(c *gin.Context) {
 	groupID := c.Query("groupId")
+	dateRange := c.Query("range") // "24h" or "7d"
 
 	now := time.Now()
-	endHour := now.Truncate(time.Hour)
-	startHour := endHour.Add(-23 * time.Hour)
+	var startHour, endHour time.Time
+	var labels []string
+	var successData, failureData, tokenData []int64
+
+	if dateRange == "7d" {
+		// 7 Days Trend (Aggregated by Day)
+		endHour = now.Truncate(24 * time.Hour)
+		startHour = endHour.AddDate(0, 0, -6) // Last 7 days including today
+	} else {
+		// Default 24 Hours Trend
+		endHour = now.Truncate(time.Hour)
+		startHour = endHour.Add(-23 * time.Hour)
+	}
 
 	var hourlyStats []models.GroupHourlyStat
 	query := s.DB.Table("group_hourly_stats").
-		Where("time >= ? AND time < ?", startHour, endHour.Add(time.Hour))
+		Where("time >= ? AND time < ?", startHour, endHour.Add(24*time.Hour)) // Scope to cover the range
 	if groupID != "" {
 		query = query.Where("group_id = ?", groupID)
 	} else {
@@ -152,66 +164,60 @@ func (s *Server) Chart(c *gin.Context) {
 		return
 	}
 
-	statsByHour := make(map[time.Time]map[string]int64)
-	for _, stat := range hourlyStats {
-		hour := stat.Time.Local().Truncate(time.Hour)
-		if _, ok := statsByHour[hour]; !ok {
-			statsByHour[hour] = make(map[string]int64)
-		}
-		statsByHour[hour]["success"] += stat.SuccessCount
-		statsByHour[hour]["failure"] += stat.FailureCount
-	}
-
-	// 获取 Token 统计 (逐小時)
-	type hourlyTokenResult struct {
-		Hour  string
-		Value int64
-	}
-	var hourlyTokens []hourlyTokenResult
-	tokenQuery := s.DB.Model(&models.RequestLog{}).
-		Where("timestamp >= ? AND timestamp < ?", startHour, endHour.Add(time.Hour)).
-		Where("is_success = ?", true).
-		Where("request_type = ?", models.RequestTypeFinal)
-
-	if groupID != "" {
-		tokenQuery = tokenQuery.Where("group_id = ?", groupID)
-	}
-
-	tokenQuery.Select("strftime('%Y-%m-%d %H:00:00', timestamp) as hour, SUM(total_tokens) as value").
-		Group("hour").
-		Scan(&hourlyTokens)
-
-	tokensByHour := make(map[time.Time]int64)
-	for _, t := range hourlyTokens {
-		// Parse hours manually because of sqlite strftime
-		parsedHour, err := time.ParseInLocation("2006-01-02 15:04:05", t.Hour, time.Local)
-		if err == nil {
-			tokensByHour[parsedHour.Truncate(time.Hour)] = t.Value
-		}
-	}
-
-	var labels []string
-	var successData, failureData, tokenData []int64
-
-	for i := range 24 {
-		hour := startHour.Add(time.Duration(i) * time.Hour)
-		labels = append(labels, hour.Format(time.RFC3339))
-
-		if data, ok := statsByHour[hour]; ok {
-			successData = append(successData, data["success"])
-			failureData = append(failureData, data["failure"])
-		} else {
-			successData = append(successData, 0)
-			failureData = append(failureData, 0)
+	if dateRange == "7d" {
+		// Aggregate hourly stats by day
+		statsByDay := make(map[string]map[string]int64)
+		for _, stat := range hourlyStats {
+			day := stat.Time.Local().Format("2006-01-02")
+			if _, ok := statsByDay[day]; !ok {
+				statsByDay[day] = make(map[string]int64)
+			}
+			statsByDay[day]["success"] += stat.SuccessCount
+			statsByDay[day]["failure"] += stat.FailureCount
+			statsByDay[day]["tokens"] += stat.TotalTokens
 		}
 
-		if val, ok := tokensByHour[hour.Truncate(time.Hour)]; ok {
-			tokenData = append(tokenData, val)
-		} else {
-			tokenData = append(tokenData, 0)
+		for i := range 7 {
+			dayTime := startHour.AddDate(0, 0, i)
+			dayStr := dayTime.Format("2006-01-02")
+			labels = append(labels, dayTime.Format(time.RFC3339))
+			if data, ok := statsByDay[dayStr]; ok {
+				successData = append(successData, data["success"])
+				failureData = append(failureData, data["failure"])
+				tokenData = append(tokenData, data["tokens"])
+			} else {
+				successData = append(successData, 0)
+				failureData = append(failureData, 0)
+				tokenData = append(tokenData, 0)
+			}
+		}
+	} else {
+		// Original 24-hour hourly logic
+		statsByHour := make(map[time.Time]map[string]int64)
+		for _, stat := range hourlyStats {
+			hour := stat.Time.Local().Truncate(time.Hour)
+			if _, ok := statsByHour[hour]; !ok {
+				statsByHour[hour] = make(map[string]int64)
+			}
+			statsByHour[hour]["success"] += stat.SuccessCount
+			statsByHour[hour]["failure"] += stat.FailureCount
+			statsByHour[hour]["tokens"] += stat.TotalTokens
+		}
+
+		for i := range 24 {
+			hour := startHour.Add(time.Duration(i) * time.Hour)
+			labels = append(labels, hour.Format(time.RFC3339))
+			if data, ok := statsByHour[hour]; ok {
+				successData = append(successData, data["success"])
+				failureData = append(failureData, data["failure"])
+				tokenData = append(tokenData, data["tokens"])
+			} else {
+				successData = append(successData, 0)
+				failureData = append(failureData, 0)
+				tokenData = append(tokenData, 0)
+			}
 		}
 	}
-
 	chartData := models.ChartData{
 		Labels: labels,
 		Datasets: []models.ChartDataset{
@@ -247,20 +253,13 @@ type hourlyStatResult struct {
 func (s *Server) getHourlyStats(startTime, endTime time.Time) (hourlyStatResult, error) {
 	var result hourlyStatResult
 
-	// Use request_logs for total tokens as group_hourly_stats doesn't have it yet
-	var tokenSum int64
-	s.DB.Raw("SELECT COALESCE(SUM(total_tokens), 0) FROM request_logs WHERE timestamp >= ? AND is_success = 1 AND request_type = 'final'", 
-		startTime).Scan(&tokenSum)
-	result.TotalTokens = tokenSum
-
 	err := s.DB.Table("group_hourly_stats").
 		Where("time >= ? AND time < ?", startTime, endTime).
 		Where("group_id NOT IN (?)",
 			s.DB.Table("groups").Select("id").Where("group_type = ?", "aggregate")).
-		Select("COALESCE(SUM(success_count), 0) + COALESCE(SUM(failure_count), 0) as total_requests, COALESCE(SUM(failure_count), 0) as total_failures").
+		Select("COALESCE(SUM(success_count), 0) + COALESCE(SUM(failure_count), 0) as total_requests, COALESCE(SUM(failure_count), 0) as total_failures, COALESCE(SUM(total_tokens), 0) as total_tokens").
 		Scan(&result).Error
-	
-	result.TotalTokens = tokenSum
+
 	return result, err
 }
 
