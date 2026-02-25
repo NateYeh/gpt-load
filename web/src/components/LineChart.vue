@@ -56,7 +56,8 @@ const dataRange = computed(() => {
     return { min: 0, max: 100 };
   }
 
-  const allValues = (props.showUsage ? chartData.value.usage : chartData.value.datasets).flatMap(d => d.data);
+  const datasets = props.showUsage ? chartData.value.usage : chartData.value.datasets;
+  const allValues = datasets.flatMap((d: any) => d.data);
   const max = Math.max(...allValues, 0);
   const min = Math.min(...allValues, 0);
 
@@ -292,7 +293,8 @@ const handleMouseMove = (event: MouseEvent) => {
   }
 
   // 收集该时间点所有数据集的数据
-  const datasetsAtTime = (props.showUsage ? chartData.value.usage : chartData.value.datasets).map(dataset => ({
+  const datasets = props.showUsage ? chartData.value.usage : chartData.value.datasets;
+  const datasetsAtTime = datasets.map((dataset: any) => ({
     label: dataset.label,
     value: dataset.data[closestTimeIndex],
     color: dataset.color,
@@ -309,7 +311,7 @@ const handleMouseMove = (event: MouseEvent) => {
     // 显示 tooltip
     const x = getXPosition(closestTimeIndex);
     const avgY =
-      datasetsAtTime.reduce((sum, item) => sum + getYPosition(item.value), 0) /
+      datasetsAtTime.reduce((sum: number, item: any) => sum + getYPosition(item.value), 0) /
       datasetsAtTime.length;
 
     tooltipPosition.value = {
@@ -396,7 +398,7 @@ onMounted(() => {
     <div v-if="chartData" class="chart-content">
       <div class="chart-wrapper">
         <div class="chart-legend">
-          <div v-for="dataset in (props.showUsage ? chartData.usage : chartData.datasets)" :key="dataset.label" class="legend-item">
+          <div v-for="dataset in (props.showUsage ? (chartData.usage as any) : (chartData.datasets as any))" :key="dataset.label" class="legend-item">
             <div class="legend-indicator" :style="{ backgroundColor: dataset.color }" />
             <span class="legend-label">{{ dataset.label }}</span>
           </div>
@@ -483,7 +485,7 @@ onMounted(() => {
           </g>
 
           <!-- 数据线条 -->
-          <g v-for="(dataset, datasetIndex) in (props.showUsage ? chartData.usage : chartData.datasets)" :key="dataset.label">
+          <g v-for="(dataset, datasetIndex) in (props.showUsage ? (chartData.usage as any) : (chartData.datasets as any))" :key="dataset.label">
             <!-- 渐变定义 -->
             <defs>
               <linearGradient :id="`gradient-${datasetIndex}`" x1="0%" y1="0%" x2="0%" y2="100%">

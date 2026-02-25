@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM node:20-alpine AS builder
+FROM node:20-alpine AS builder
 
 ARG VERSION=1.4.4
 WORKDIR /build
@@ -8,7 +8,7 @@ COPY ./web .
 RUN VITE_VERSION=${VERSION} npm run build
 
 
-FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS builder2
+FROM golang:1.24-alpine AS builder2
 
 ARG VERSION=1.4.4
 ARG TARGETOS

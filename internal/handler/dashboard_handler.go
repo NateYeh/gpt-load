@@ -164,7 +164,7 @@ func (s *Server) Chart(c *gin.Context) {
 
 	// 获取 Token 统计 (逐小時)
 	type hourlyTokenResult struct {
-		Hour  time.Time
+		Hour  string
 		Value int64
 	}
 	var hourlyTokens []hourlyTokenResult
@@ -184,8 +184,10 @@ func (s *Server) Chart(c *gin.Context) {
 	tokensByHour := make(map[time.Time]int64)
 	for _, t := range hourlyTokens {
 		// Parse hours manually because of sqlite strftime
-		parsedHour, _ := time.ParseInLocation("2006-01-02 15:04:05", t.Hour.Format("2006-01-02 15:04:05"), time.Local)
-		tokensByHour[parsedHour.Truncate(time.Hour)] = t.Value
+		parsedHour, err := time.ParseInLocation("2006-01-02 15:04:05", t.Hour, time.Local)
+		if err == nil {
+			tokensByHour[parsedHour.Truncate(time.Hour)] = t.Value
+		}
 	}
 
 	var labels []string
@@ -247,12 +249,8 @@ func (s *Server) getHourlyStats(startTime, endTime time.Time) (hourlyStatResult,
 
 	// Use request_logs for total tokens as group_hourly_stats doesn't have it yet
 	var tokenSum int64
-	s.DB.Model(&models.RequestLog{}).
-		Where("timestamp >= ? AND timestamp < ?", startTime, endTime).
-		Where("is_success = ?", true).
-		Where("request_type = ?", models.RequestTypeFinal).
-		Select("COALESCE(SUM(total_tokens), 0)").
-		Scan(&tokenSum)
+	s.DB.Raw("SELECT COALESCE(SUM(total_tokens), 0) FROM request_logs WHERE timestamp >= ? AND is_success = 1 AND request_type = 'final'", 
+		startTime).Scan(&tokenSum)
 	result.TotalTokens = tokenSum
 
 	err := s.DB.Table("group_hourly_stats").
@@ -261,6 +259,8 @@ func (s *Server) getHourlyStats(startTime, endTime time.Time) (hourlyStatResult,
 			s.DB.Table("groups").Select("id").Where("group_type = ?", "aggregate")).
 		Select("COALESCE(SUM(success_count), 0) + COALESCE(SUM(failure_count), 0) as total_requests, COALESCE(SUM(failure_count), 0) as total_failures").
 		Scan(&result).Error
+	
+	result.TotalTokens = tokenSum
 	return result, err
 }
 

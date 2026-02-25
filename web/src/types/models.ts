@@ -250,4 +250,5 @@ export interface ChartDataset {
 export interface ChartData {
   labels: string[];
   datasets: ChartDataset[];
+  usage: ChartDataset[];
 }
