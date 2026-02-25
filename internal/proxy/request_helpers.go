@@ -70,8 +70,8 @@ func fixEmptyAssistantToolCallContent(bodyBytes []byte) []byte {
 	return newBody
 }
 
-func (ps *ProxyServer) applyParamOverrides(bodyBytes []byte, group *models.Group) ([]byte, error) {
-	if len(group.ParamOverrides) == 0 || len(bodyBytes) == 0 {
+func (ps *ProxyServer) applyParamOverrides(bodyBytes []byte, group *models.Group, isStream bool) ([]byte, error) {
+	if len(bodyBytes) == 0 {
 		return bodyBytes, nil
 	}
 
@@ -81,8 +81,27 @@ func (ps *ProxyServer) applyParamOverrides(bodyBytes []byte, group *models.Group
 		return bodyBytes, nil
 	}
 
+	// Apply configured overrides
 	for key, value := range group.ParamOverrides {
 		requestData[key] = value
+	}
+
+	// For OpenAI stream usage tracking, infect stream_options
+	if isStream {
+		so, ok := requestData["stream_options"].(map[string]any)
+		if !ok {
+			if soInterface, exists := requestData["stream_options"]; exists {
+				if m, ok := soInterface.(map[string]any); ok {
+					so = m
+				} else {
+					so = make(map[string]any)
+				}
+			} else {
+				so = make(map[string]any)
+			}
+		}
+		so["include_usage"] = true
+		requestData["stream_options"] = so
 	}
 
 	return json.Marshal(requestData)

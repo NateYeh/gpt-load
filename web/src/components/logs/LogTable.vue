@@ -266,6 +266,24 @@ const allColumnConfigs: ColumnConfig[] = [
       ),
   },
   {
+    key: "prompt_tokens",
+    title: t("logs.promptTokens"),
+    width: 120,
+    defaultVisible: true,
+  },
+  {
+    key: "completion_tokens",
+    title: t("logs.completionTokens"),
+    width: 120,
+    defaultVisible: true,
+  },
+  {
+    key: "total_tokens",
+    title: t("logs.totalTokens"),
+    width: 120,
+    defaultVisible: true,
+  },
+  {
     key: "status_code",
     title: t("logs.statusCode"),
     width: 130,
@@ -773,6 +791,18 @@ const deselectAllColumns = () => {
                 <n-tag :type="selectedLog.is_stream ? 'info' : 'default'" size="small">
                   {{ selectedLog.is_stream ? t("logs.stream") : t("logs.nonStream") }}
                 </n-tag>
+              </div>
+              <div class="detail-item-compact">
+                <span class="detail-label-compact">{{ t("logs.promptTokens") }}:</span>
+                <span class="detail-value-compact">{{ selectedLog.prompt_tokens || 0 }}</span>
+              </div>
+              <div class="detail-item-compact">
+                <span class="detail-label-compact">{{ t("logs.completionTokens") }}:</span>
+                <span class="detail-value-compact">{{ selectedLog.completion_tokens || 0 }}</span>
+              </div>
+              <div class="detail-item-compact">
+                <span class="detail-label-compact">{{ t("logs.totalTokens") }}:</span>
+                <span class="detail-value-compact">{{ selectedLog.total_tokens || 0 }}</span>
               </div>
               <div class="detail-item-compact">
                 <span class="detail-label-compact">{{ t("logs.sourceIP") }}:</span>

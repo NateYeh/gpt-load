@@ -150,8 +150,11 @@ type RequestLog struct {
 	UserAgent       string    `gorm:"type:varchar(512)" json:"user_agent"`
 	RequestType     string    `gorm:"type:varchar(20);not null;default:'final';index" json:"request_type"`
 	UpstreamAddr    string    `gorm:"type:varchar(1024)" json:"upstream_addr"`
-	IsStream        bool      `gorm:"not null" json:"is_stream"`
-	RequestBody     string    `gorm:"type:text" json:"request_body"`
+	IsStream         bool      `gorm:"not null" json:"is_stream"`
+	RequestBody      string    `gorm:"type:text" json:"request_body"`
+	PromptTokens     int       `gorm:"default:0" json:"prompt_tokens"`
+	CompletionTokens int       `gorm:"default:0" json:"completion_tokens"`
+	TotalTokens      int       `gorm:"default:0" json:"total_tokens"`
 }
 
 // StatCard 用于仪表盘的单个统计卡片数据
