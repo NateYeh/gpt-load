@@ -1134,7 +1134,7 @@ const deselectAllColumns = () => {
   min-width: 0;
   word-break: break-all;
   line-height: 1.3;
-  max-height: 60px;
+  max-height: 200px;
   overflow-y: auto;
 }
 
@@ -1195,7 +1195,7 @@ const deselectAllColumns = () => {
   word-break: break-all;
   white-space: pre-wrap;
   color: var(--text-primary);
-  max-height: 100px;
+  max-height: 500px;
   overflow-y: auto;
 }
 
