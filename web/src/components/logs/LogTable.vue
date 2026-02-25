@@ -266,22 +266,22 @@ const allColumnConfigs: ColumnConfig[] = [
       ),
   },
   {
+    key: "total_tokens",
+    title: t("logs.totalTokens"),
+    width: 120,
+    defaultVisible: true,
+  },
+  {
     key: "prompt_tokens",
     title: t("logs.promptTokens"),
     width: 120,
-    defaultVisible: true,
+    defaultVisible: false,
   },
   {
     key: "completion_tokens",
     title: t("logs.completionTokens"),
     width: 120,
-    defaultVisible: true,
-  },
-  {
-    key: "total_tokens",
-    title: t("logs.totalTokens"),
-    width: 120,
-    defaultVisible: true,
+    defaultVisible: false,
   },
   {
     key: "status_code",
