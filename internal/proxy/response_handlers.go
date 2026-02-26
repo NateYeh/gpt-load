@@ -31,12 +31,22 @@ func (ps *ProxyServer) handleStreamingResponse(c *gin.Context, resp *http.Respon
 	}
 
 	var finalUsage *usageInfo
+	var responseBodyBuilder strings.Builder
+	const maxBodySize = 262144 // 256KB truncate limit
+	
 	scanner := bufio.NewScanner(resp.Body)
 	for scanner.Scan() {
 		line := scanner.Text()
+		
+		// Record the response body
+		if responseBodyBuilder.Len() < maxBodySize {
+			responseBodyBuilder.WriteString(line)
+			responseBodyBuilder.WriteString("\n")
+		}
+
 		if _, err := c.Writer.Write([]byte(line + "\n")); err != nil {
 			logUpstreamError("writing stream to client", err)
-			return nil, ""
+			return nil, responseBodyBuilder.String()
 		}
 		flusher.Flush()
 
@@ -82,9 +92,9 @@ func (ps *ProxyServer) handleStreamingResponse(c *gin.Context, resp *http.Respon
 		logUpstreamError("reading stream from upstream", err)
 	}
 
-	// Streaming responses are not logged to avoid memory issues
-	return finalUsage, ""
+	return finalUsage, responseBodyBuilder.String()
 }
+
 func (ps *ProxyServer) handleNormalResponse(c *gin.Context, resp *http.Response) (*usageInfo, string) {
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
