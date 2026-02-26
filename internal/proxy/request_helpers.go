@@ -70,7 +70,7 @@ func fixEmptyAssistantToolCallContent(bodyBytes []byte) []byte {
 	return newBody
 }
 
-func (ps *ProxyServer) applyParamOverrides(bodyBytes []byte, group *models.Group, isStream bool) ([]byte, error) {
+func (ps *ProxyServer) applyParamOverrides(bodyBytes []byte, group *models.Group, isStream bool, channelType string) ([]byte, error) {
 	if len(bodyBytes) == 0 {
 		return bodyBytes, nil
 	}
@@ -86,8 +86,10 @@ func (ps *ProxyServer) applyParamOverrides(bodyBytes []byte, group *models.Group
 		requestData[key] = value
 	}
 
-	// For OpenAI stream usage tracking, infect stream_options
-	if isStream {
+	// For OpenAI stream usage tracking, inject stream_options
+	// Only applies to OpenAI-compatible APIs (openai, anthropic)
+	// Gemini and other providers do not support this field
+	if isStream && (channelType == "openai" || channelType == "anthropic") {
 		so, ok := requestData["stream_options"].(map[string]any)
 		if !ok {
 			if soInterface, exists := requestData["stream_options"]; exists {

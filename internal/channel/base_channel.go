@@ -131,6 +131,11 @@ func (b *BaseChannel) GetStreamClient() *http.Client {
 	return b.StreamClient
 }
 
+// ChannelType returns the channel type identifier.
+func (b *BaseChannel) ChannelType() string {
+	return b.channelType
+}
+
 // ApplyModelRedirect applies model redirection based on the group's redirect rules.
 func (b *BaseChannel) ApplyModelRedirect(req *http.Request, bodyBytes []byte, group *models.Group) ([]byte, error) {
 	if len(group.ModelRedirectMap) == 0 || len(bodyBytes) == 0 {
