@@ -1,9 +1,9 @@
 package db
 
 import (
-	"gpt-load/internal/models"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
+	"gpt-load/internal/models"
 	"time"
 )
 
@@ -11,7 +11,7 @@ import (
 // and backfills historical data from request_logs.
 func V1_3_0_AddTotalTokensToStats(db *gorm.DB) error {
 	columnName := "total_tokens"
-	
+
 	// 1. Add column if not exists
 	if !db.Migrator().HasColumn(&models.GroupHourlyStat{}, columnName) {
 		logrus.Infof("Adding missing column %s to group_hourly_stats table", columnName)
@@ -24,18 +24,18 @@ func V1_3_0_AddTotalTokensToStats(db *gorm.DB) error {
 	// 2. Backfill data from request_logs
 	// We only backfill for success requests and 'final' type
 	logrus.Info("Starting backfill for total_tokens in group_hourly_stats...")
-	
+
 	// Query aggregate token counts from request_logs grouped by hour and group_id
 	// We limit backfill to last 14 days to avoid performance issues on large log tables
 	startTime := time.Now().AddDate(0, 0, -14).Truncate(24 * time.Hour)
-	
+
 	type result struct {
 		Hour        string
 		GroupID     uint
 		TotalTokens int64
 	}
 	var results []result
-	
+
 	// Use different SQL for different DB drivers
 	var query string
 	if db.Dialector.Name() == "sqlite" {
@@ -70,9 +70,9 @@ func V1_3_0_AddTotalTokensToStats(db *gorm.DB) error {
 	if len(results) > 0 {
 		logrus.Infof("Found %d hourly records to backfill", len(results))
 		for _, r := range results {
-			// Update the stats table. 
+			// Update the stats table.
 			// We use Exec instead of Model for better precision on SQLite column types during migration
-			if err := db.Exec("UPDATE group_hourly_stats SET total_tokens = ? WHERE time = ? AND group_id = ?", 
+			if err := db.Exec("UPDATE group_hourly_stats SET total_tokens = ? WHERE time = ? AND group_id = ?",
 				r.TotalTokens, r.Hour, r.GroupID).Error; err != nil {
 				logrus.Warnf("Failed to backfill stat for %v GroupID %d: %v", r.Hour, r.GroupID, err)
 			}

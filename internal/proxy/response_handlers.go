@@ -3,12 +3,13 @@ package proxy
 import (
 	"bufio"
 	"encoding/json"
+	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 	"io"
 	"net/http"
 	"strings"
-	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 )
+
 type openAIResponse struct {
 	Usage usageInfo `json:"usage"`
 }
@@ -17,7 +18,7 @@ type geminiResponse struct {
 	UsageMetadata usageInfo `json:"usageMetadata"`
 }
 
-func (ps *ProxyServer) handleStreamingResponse(c *gin.Context, resp *http.Response) *usageInfo {
+func (ps *ProxyServer) handleStreamingResponse(c *gin.Context, resp *http.Response) (*usageInfo, string) {
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
@@ -35,7 +36,7 @@ func (ps *ProxyServer) handleStreamingResponse(c *gin.Context, resp *http.Respon
 		line := scanner.Text()
 		if _, err := c.Writer.Write([]byte(line + "\n")); err != nil {
 			logUpstreamError("writing stream to client", err)
-			return nil
+			return nil, ""
 		}
 		flusher.Flush()
 
@@ -81,14 +82,14 @@ func (ps *ProxyServer) handleStreamingResponse(c *gin.Context, resp *http.Respon
 		logUpstreamError("reading stream from upstream", err)
 	}
 
-	return finalUsage
+	// Streaming responses are not logged to avoid memory issues
+	return finalUsage, ""
 }
-
-func (ps *ProxyServer) handleNormalResponse(c *gin.Context, resp *http.Response) *usageInfo {
+func (ps *ProxyServer) handleNormalResponse(c *gin.Context, resp *http.Response) (*usageInfo, string) {
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		logUpstreamError("reading normal response body", err)
-		return nil
+		return nil, ""
 	}
 
 	// Try to parse usage
@@ -99,7 +100,7 @@ func (ps *ProxyServer) handleNormalResponse(c *gin.Context, resp *http.Response)
 		}
 		openAIResp.Usage.Normalize()
 		if openAIResp.Usage.TotalTokens > 0 {
-			return &openAIResp.Usage
+			return &openAIResp.Usage, string(bodyBytes)
 		}
 		logrus.Debugf("Usage block detected in normal response but parsed as 0 tokens. Body: %s", string(bodyBytes))
 	} else {
@@ -110,7 +111,7 @@ func (ps *ProxyServer) handleNormalResponse(c *gin.Context, resp *http.Response)
 			}
 			gResp.UsageMetadata.Normalize()
 			if gResp.UsageMetadata.TotalTokens > 0 {
-				return &gResp.UsageMetadata
+				return &gResp.UsageMetadata, string(bodyBytes)
 			}
 			logrus.Debugf("usageMetadata block detected in normal response but parsed as 0 tokens. Body: %s", string(bodyBytes))
 		}
@@ -120,5 +121,5 @@ func (ps *ProxyServer) handleNormalResponse(c *gin.Context, resp *http.Response)
 		logUpstreamError("writing normal response to client", err)
 	}
 
-	return nil
+	return nil, string(bodyBytes)
 }

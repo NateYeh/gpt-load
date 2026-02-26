@@ -508,6 +508,7 @@ export default {
     requestInfo: "Request Information",
     upstreamAddress: "Upstream Address",
     requestContent: "Request Content",
+    responseContent: "Response Content",
     errorInfo: "Error Information",
     customColumns: "Custom Columns",
   },

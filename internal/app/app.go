@@ -81,7 +81,7 @@ func (a *App) Start() error {
 		return fmt.Errorf("failed to initialize i18n: %w", err)
 	}
 	logrus.Info("i18n initialized successfully.")
-	
+
 	// Master 节点执行初始化
 	if a.configManager.IsMaster() {
 		logrus.Info("Starting as Master Node.")
