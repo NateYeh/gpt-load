@@ -6,18 +6,33 @@ import (
 	"encoding/json"
 	app_errors "gpt-load/internal/errors"
 	"gpt-load/internal/models"
+	"gpt-load/internal/utils"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/sirupsen/logrus"
 )
 
 const assistantToolCallContentFallback = "Thinking..."
 
+// autoFillThinkingContent determines whether to auto-fill empty content with "Thinking..."
+// when assistant messages have tool_calls. This can be controlled via the
+// AUTO_FILL_THINKING_CONTENT environment variable (default: true).
+func autoFillThinkingContent() bool {
+	return utils.ParseBoolean(os.Getenv("AUTO_FILL_THINKING_CONTENT"), true)
+}
+
 // fixEmptyAssistantToolCallContent fixes the issue where assistant messages with tool_calls
 // but empty content cause "Function call is missing a thought_signature" errors.
+// This behavior can be disabled by setting AUTO_FILL_THINKING_CONTENT=false.
 func fixEmptyAssistantToolCallContent(bodyBytes []byte) []byte {
 	if len(bodyBytes) == 0 {
+		return bodyBytes
+	}
+
+	// Check if auto-fill is enabled
+	if !autoFillThinkingContent() {
 		return bodyBytes
 	}
 
