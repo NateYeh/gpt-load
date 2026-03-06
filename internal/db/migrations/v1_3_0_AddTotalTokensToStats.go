@@ -53,11 +53,11 @@ func V1_3_0_AddTotalTokensToStats(db *gorm.DB) error {
 			GROUP BY hour, group_id
 		`
 	} else {
-		// Postgres
+		// Postgres - use TRUE/FALSE for boolean comparison
 		query = `
 			SELECT date_trunc('hour', timestamp) as hour, group_id, SUM(total_tokens) as total_tokens 
 			FROM request_logs 
-			WHERE timestamp >= ? AND is_success = 1 AND request_type = 'final'
+			WHERE timestamp >= ? AND is_success = TRUE AND request_type = 'final'
 			GROUP BY hour, group_id
 		`
 	}

@@ -307,8 +307,8 @@ func (ps *ProxyServer) logRequest(
 	}
 	var requestBodyToLog, responseBodyToLog, userAgent string
 	if group.EffectiveConfig.EnableRequestBodyLogging {
-		requestBodyToLog = utils.TruncateString(string(bodyBytes), 262144)
-		responseBodyToLog = utils.TruncateString(responseBody, 262144)
+		requestBodyToLog = utils.TruncateString(string(bodyBytes), utils.MaxBodySize)
+		responseBodyToLog = utils.TruncateString(responseBody, utils.MaxBodySize)
 		userAgent = c.Request.UserAgent()
 	}
 	duration := time.Since(startTime).Milliseconds()
@@ -318,12 +318,12 @@ func (ps *ProxyServer) logRequest(
 		IsSuccess:    finalError == nil && statusCode < 400,
 		SourceIP:     c.ClientIP(),
 		StatusCode:   statusCode,
-		RequestPath:  utils.TruncateString(c.Request.URL.String(), 1024),
+		RequestPath:  utils.TruncateString(c.Request.URL.String(), utils.MaxPathLength),
 		Duration:     duration,
 		UserAgent:    userAgent,
 		RequestType:  requestType,
 		IsStream:     isStream,
-		UpstreamAddr: utils.TruncateString(upstreamAddr, 1024),
+		UpstreamAddr: utils.TruncateString(upstreamAddr, utils.MaxAddrLength),
 		RequestBody:  requestBodyToLog,
 		ResponseBody: responseBodyToLog,
 	}

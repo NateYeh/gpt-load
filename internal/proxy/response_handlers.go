@@ -3,11 +3,14 @@ package proxy
 import (
 	"bufio"
 	"encoding/json"
-	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 	"io"
 	"net/http"
 	"strings"
+
+	"gpt-load/internal/utils"
+
+	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 type openAIResponse struct {
@@ -32,14 +35,13 @@ func (ps *ProxyServer) handleStreamingResponse(c *gin.Context, resp *http.Respon
 
 	var finalUsage *usageInfo
 	var responseBodyBuilder strings.Builder
-	const maxBodySize = 262144 // 256KB truncate limit
-	
+
 	scanner := bufio.NewScanner(resp.Body)
 	for scanner.Scan() {
 		line := scanner.Text()
-		
+
 		// Record the response body
-		if responseBodyBuilder.Len() < maxBodySize {
+		if responseBodyBuilder.Len() < utils.MaxBodySize {
 			responseBodyBuilder.WriteString(line)
 			responseBodyBuilder.WriteString("\n")
 		}
