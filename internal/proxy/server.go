@@ -307,8 +307,8 @@ func (ps *ProxyServer) logRequest(
 	}
 	var requestBodyToLog, responseBodyToLog, userAgent string
 	if group.EffectiveConfig.EnableRequestBodyLogging {
-		requestBodyToLog = utils.TruncateString(string(bodyBytes), utils.MaxBodySize)
-		responseBodyToLog = utils.TruncateString(responseBody, utils.MaxBodySize)
+		requestBodyToLog = utils.SanitizeUTF8(utils.TruncateString(string(bodyBytes), utils.MaxBodySize))
+		responseBodyToLog = utils.SanitizeUTF8(utils.TruncateString(responseBody, utils.MaxBodySize))
 		userAgent = c.Request.UserAgent()
 	}
 	duration := time.Since(startTime).Milliseconds()
@@ -350,7 +350,7 @@ func (ps *ProxyServer) logRequest(
 		logEntry.KeyHash = ps.encryptionSvc.Hash(apiKey.KeyValue)
 	}
 	if finalError != nil {
-		logEntry.ErrorMessage = finalError.Error()
+		logEntry.ErrorMessage = utils.SanitizeUTF8(finalError.Error())
 	}
 	if err := ps.requestLogService.Record(logEntry); err != nil {
 		logrus.Errorf("Failed to record request log: %v", err)

@@ -22,6 +22,12 @@ func TruncateString(s string, maxLength int) string {
 	return s
 }
 
+// SanitizeUTF8 removes null bytes and other invalid UTF-8 sequences from a string.
+// PostgreSQL's UTF-8 encoding does not allow null bytes (0x00).
+func SanitizeUTF8(s string) string {
+	return strings.ReplaceAll(s, "\x00", "")
+}
+
 // SplitAndTrim splits a string by a separator
 func SplitAndTrim(s string, sep string) []string {
 	if s == "" {
