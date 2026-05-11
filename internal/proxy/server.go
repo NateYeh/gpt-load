@@ -110,8 +110,6 @@ func (ps *ProxyServer) HandleProxy(c *gin.Context) {
 		return
 	}
 
-	// Fix empty assistant tool_call content to avoid "missing thought_signature" errors
-	finalBodyBytes = fixEmptyAssistantToolCallContent(finalBodyBytes)
 
 	ps.executeRequestWithRetry(c, channelHandler, originalGroup, group, finalBodyBytes, isStream, startTime, 0)
 }
