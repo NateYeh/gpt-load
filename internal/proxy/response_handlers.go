@@ -17,6 +17,13 @@ type openAIResponse struct {
 	Usage usageInfo `json:"usage"`
 }
 
+// openAIResponseAPI 用於解析 Responses API 格式（usage 巢狀在 response 物件內）
+type openAIResponseAPI struct {
+	Response struct {
+		Usage usageInfo `json:"usage"`
+	} `json:"response"`
+}
+
 type geminiResponse struct {
 	UsageMetadata usageInfo `json:"usageMetadata"`
 }
@@ -74,13 +81,22 @@ func (ps *ProxyServer) handleStreamingResponse(c *gin.Context, resp *http.Respon
 			data := strings.TrimPrefix(line, "data: ")
 			if data != "[DONE]" {
 				if strings.Contains(data, "\"usage\"") {
+					// 先嘗試 Chat Completions 格式（usage 在頂層）
 					var uResp openAIResponse
-					if err := json.Unmarshal([]byte(data), &uResp); err == nil {
+					if err := json.Unmarshal([]byte(data), &uResp); err == nil && uResp.Usage.TotalTokens > 0 {
 						uResp.Usage.Normalize()
-						if uResp.Usage.TotalTokens > 0 {
-							finalUsage = &uResp.Usage
-						} else {
-							// Log if usage found but tokens=0, might be a parsing issue
+						finalUsage = &uResp.Usage
+					} else {
+						// 再嘗試 Responses API 格式（usage 在 response 物件內）
+						var rResp openAIResponseAPI
+						if err := json.Unmarshal([]byte(data), &rResp); err == nil {
+							rResp.Response.Usage.Normalize()
+							if rResp.Response.Usage.TotalTokens > 0 {
+								finalUsage = &rResp.Response.Usage
+							} else {
+								logrus.Debugf("Responses API usage block detected in stream but parsed as 0 tokens. Data: %s", data)
+							}
+						} else if uResp.Usage.TotalTokens == 0 {
 							logrus.Debugf("Usage block detected in stream but parsed as 0 tokens. Data: %s", data)
 						}
 					}
@@ -136,8 +152,27 @@ func (ps *ProxyServer) handleNormalResponse(c *gin.Context, resp *http.Response)
 		return nil, ""
 	}
 
-	// Try to parse usage from OpenAI format
+	// 先嘗試 Chat Completions 格式（usage 在頂層）
 	var openAIResp openAIResponse
+	if err := json.Unmarshal(bodyBytes, &openAIResp); err == nil && strings.Contains(string(bodyBytes), "\"usage\"") && openAIResp.Usage.TotalTokens > 0 {
+		if _, err := c.Writer.Write(bodyBytes); err != nil {
+			logUpstreamError("writing normal response to client", err)
+		}
+		openAIResp.Usage.Normalize()
+		return &openAIResp.Usage, string(bodyBytes)
+	}
+
+	// 再嘗試 Responses API 格式（usage 在 response 物件內）
+	var rResp openAIResponseAPI
+	if err := json.Unmarshal(bodyBytes, &rResp); err == nil && rResp.Response.Usage.TotalTokens > 0 {
+		if _, err := c.Writer.Write(bodyBytes); err != nil {
+			logUpstreamError("writing normal response to client", err)
+		}
+		rResp.Response.Usage.Normalize()
+		return &rResp.Response.Usage, string(bodyBytes)
+	}
+
+	// 回退：OpenAI 格式有 usage 但值為 0，仍寫回客戶端
 	if err := json.Unmarshal(bodyBytes, &openAIResp); err == nil && strings.Contains(string(bodyBytes), "\"usage\"") {
 		if _, err := c.Writer.Write(bodyBytes); err != nil {
 			logUpstreamError("writing normal response to client", err)
@@ -160,7 +195,7 @@ func (ps *ProxyServer) handleNormalResponse(c *gin.Context, resp *http.Response)
 		if gResp.UsageMetadata.TotalTokens > 0 {
 			return &gResp.UsageMetadata, string(bodyBytes)
 		}
-		logrus.Debugf("usageMetadata block detected in normal response but parsed as 0 tokens. Body: %s", string(bodyBytes))
+		logrus.Debugf("usageMetadata detected in normal response but parsed as 0 tokens. Body: %s", string(bodyBytes))
 		return nil, string(bodyBytes)
 	}
 
