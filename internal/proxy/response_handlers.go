@@ -83,9 +83,13 @@ func (ps *ProxyServer) handleStreamingResponse(c *gin.Context, resp *http.Respon
 				if strings.Contains(data, "\"usage\"") {
 					// 先嘗試 Chat Completions 格式（usage 在頂層）
 					var uResp openAIResponse
-					if err := json.Unmarshal([]byte(data), &uResp); err == nil && uResp.Usage.TotalTokens > 0 {
+					if err := json.Unmarshal([]byte(data), &uResp); err == nil {
 						uResp.Usage.Normalize()
-						finalUsage = &uResp.Usage
+						if uResp.Usage.TotalTokens > 0 {
+							finalUsage = &uResp.Usage
+						} else {
+							logrus.Debugf("Usage block detected in stream but parsed as 0 tokens. Data: %s", data)
+						}
 					} else {
 						// 再嘗試 Responses API 格式（usage 在 response 物件內）
 						var rResp openAIResponseAPI
@@ -96,8 +100,6 @@ func (ps *ProxyServer) handleStreamingResponse(c *gin.Context, resp *http.Respon
 							} else {
 								logrus.Debugf("Responses API usage block detected in stream but parsed as 0 tokens. Data: %s", data)
 							}
-						} else if uResp.Usage.TotalTokens == 0 {
-							logrus.Debugf("Usage block detected in stream but parsed as 0 tokens. Data: %s", data)
 						}
 					}
 				} else if strings.Contains(data, "\"usageMetadata\"") {
